@@ -6,16 +6,17 @@
     "license": "MIT",
     "require": {
        "symfony/framework-bundle": "~2.1",
-        "qiniu/php-sdk": "dev-master"
+        "qiniu/php-sdk": "~6.1"
     },
     "require-dev": {
-    },
-    "suggest": {
+        "qiniu/php-sdk": "dev-master"
     },
     "autoload": {
         "psr-0": { "DWD\\QiniuSdkBundle": "" }
     },
     "target-dir": "DWD/QiniuSdkBundle",
     "extra": {
+       "branch-alias": {
+       }
     }
 }
