@@ -1,0 +1,21 @@
+{
+    "name": "dwd/qiniu-sdk-bundle",
+    "description": "",
+    "keywords": ["api", "qiniu"],
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "require": {
+       "symfony/framework-bundle": "~2.1",
+        "qiniu/php-sdk": "dev-master"
+    },
+    "require-dev": {
+    },
+    "suggest": {
+    },
+    "autoload": {
+        "psr-0": { "DWD\\QiniuSdkBundle": "" }
+    },
+    "target-dir": "DWD/QiniuSdkBundle",
+    "extra": {
+    }
+}

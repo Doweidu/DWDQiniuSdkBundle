@@ -1,0 +1,7 @@
+parameters:
+#    dwd_qiniu_sdk.example.class: DWD\QiniuSdkBundle\Example
+
+services:
+#    dwd_qiniu_sdk.example:
+#        class: %dwd_qiniu_sdk.example.class%
+#        arguments: [@service_id, "plain_value", %parameter%]
