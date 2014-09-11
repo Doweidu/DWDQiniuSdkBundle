@@ -1,7 +1,12 @@
 parameters:
-#    dwd_qiniu_sdk.example.class: DWD\QiniuSdkBundle\Example
+    dwd_qiniu_sdk.util.class: DWD\QiniuSdkBundle\Util\Qiniu
 
 services:
-#    dwd_qiniu_sdk.example:
-#        class: %dwd_qiniu_sdk.example.class%
-#        arguments: [@service_id, "plain_value", %parameter%]
+   dwd_qiniu_sdk:
+      class: %dwd_qiniu_sdk.util.class%
+      arguments: 
+         - @service_container
+         - %qiniu_sdk_accessKey%
+         - %qiniu_sdk_secretKey%
+         - %qiniu_sdk_bucket%
+         - %qiniu_sdk_domain%
