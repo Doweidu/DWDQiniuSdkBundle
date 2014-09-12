@@ -1,12 +1,20 @@
 parameters:
     dwd_qiniu_sdk.util.class: DWD\QiniuSdkBundle\Util\Qiniu
+    dwd_qiniu_sdk.twig_ext.class: DWD\QiniuSdkBundle\Twig\Extension\QiniuExtension
 
 services:
-   dwd_qiniu_sdk:
-      class: %dwd_qiniu_sdk.util.class%
-      arguments: 
-         - @service_container
-         - %qiniu_sdk_accessKey%
-         - %qiniu_sdk_secretKey%
-         - %qiniu_sdk_bucket%
-         - %qiniu_sdk_domain%
+    dwd_qiniu_sdk:
+        class: %dwd_qiniu_sdk.util.class%
+        arguments:
+            - @service_container
+            - %qiniu_sdk_accessKey%
+            - %qiniu_sdk_secretKey%
+            - %qiniu_sdk_bucket%
+            - %qiniu_sdk_domain%
+
+    dwd.twig.qiniu_extension:
+        class: %dwd_qiniu_sdk.twig_ext.class%
+        tags:
+            - { name: twig.extension }
+        arguments:
+            - @dwd_qiniu_sdk

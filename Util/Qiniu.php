@@ -7,6 +7,8 @@
  *
  * see more qiniu php-sdk, read: https://github.com/qiniu/php-sdk/tree/develop/docs
  *
+ * error codes table: http://developer.qiniu.com/docs/v6/api/reference/codes.html
+ *
  */
 
 namespace DWD\QiniuSdkBundle\Util;
