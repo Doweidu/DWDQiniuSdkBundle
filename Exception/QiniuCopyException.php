@@ -2,7 +2,7 @@
 
 namespace DWD\QiniuSdkBundle\Exception;
 
-class QiniuPutException extends QiniuException
+class QiniuCopyException extends QiniuException
 {
 
 }
