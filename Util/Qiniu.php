@@ -22,228 +22,244 @@ use DWD\QiniuSdkBundle\Exception\QiniuStatException;
 
 class Qiniu
 {
-   private $accessKey;
-   private $secretKey;
-   private $bucket;
-   private $domain;
-   private $upToken = null;
-   private $upTokenExpire = 0;
-   public $client;
+    private $accessKey;
+    private $secretKey;
+    private $bucket;
+    private $domain;
+    private $upToken = null;
+    private $upTokenExpire = 0;
+    public $client;
 
-   /*
-    * you need add some parameters in your app/config/parameters.yml.dist
-    *
-    * ...
-    *
-    * qiniu_sdk_accessKey: <YOUR_ACCESS_KEY>
-    * qiniu_sdk_secretKey: <YOUR_SECRET_KEY>
-    * qiniu_sdk_bucket: <YOUR_BUCKET_NAME>
-    * qiniu_sdk_domain: <YOUR_BUCKET_DOMAIN>
-    *
-    * then run composer update and follow the tip and enter your qiniu config
-    *
-    */
-   public function __construct( ContainerInterface $container, $accessKey, $secretKey, $bucket, $domain )
-   {
-      $this->container = $container;
-      $this->accessKey = $accessKey;
-      $this->secretKey = $secretKey;
-      $this->bucket = $bucket;
-      $this->domain = $domain;
+    /*
+     * you need add some parameters in your app/config/parameters.yml.dist
+     *
+     * ...
+     *
+     * qiniu_sdk_accessKey: <YOUR_ACCESS_KEY>
+     * qiniu_sdk_secretKey: <YOUR_SECRET_KEY>
+     * qiniu_sdk_bucket: <YOUR_BUCKET_NAME>
+     * qiniu_sdk_domain: <YOUR_BUCKET_DOMAIN>
+     *
+     * then run composer update and follow the tip and enter your qiniu config
+     *
+     */
+    public function __construct( ContainerInterface $container, $accessKey, $secretKey, $bucket, $domain )
+    {
+        $this->container = $container;
+        $this->accessKey = $accessKey;
+        $this->secretKey = $secretKey;
+        $this->bucket = $bucket;
+        $this->domain = $domain;
 
-      Qiniu_SetKeys( $this->accessKey, $this->secretKey );
+        Qiniu_SetKeys( $this->accessKey, $this->secretKey );
 
-      $this->client = new \Qiniu_MacHttpClient(null);
-   }
+        $this->client = new \Qiniu_MacHttpClient(null);
+    }
 
-   /*
-    * get current bucket name
-    */
-   public function getBucket()
-   {
-       return $this->bucket;
-   }
+    /*
+     * get current bucket name
+     */
+    public function getBucket()
+    {
+        return $this->bucket;
+    }
 
-   /*
-    * set current bucket name
-    */
-   public function setBucket( $bucket )
-   {
-       $this->bucket = $bucket;
+    /*
+     * set current bucket name
+     */
+    public function setBucket( $bucket )
+    {
+        $this->bucket = $bucket;
 
-       return $this;
-   }
+        return $this;
+    }
 
-   /*
-    * get resource url with qiniu key
-    */
-   public function getBaseUrl( $key )
-   {
-      return Qiniu_RS_MakeBaseUrl( $this->domain, $key );
-   }
+    /*
+     * get resource url with qiniu key
+     */
+    public function getBaseUrl( $key )
+    {
+        return Qiniu_RS_MakeBaseUrl( $this->domain, $key );
+    }
 
-   /*
-    * get upload token
-    */
-   public function getUpToken()
-   {
-      if( $this->upToken === null OR time() > $this->upTokenExpire ) {
-         $putPolicy = new \Qiniu_RS_PutPolicy( $this->bucket );
-         $this->upToken = $putPolicy->Token(null);
-         $this->upTokenExpire = time() + 3600; // qiniu sdk default uptoken expire time, in rs.php
-      }
+    /*
+     * get upload token
+     */
+    public function getUpToken()
+    {
+        if( $this->upToken === null OR time() > $this->upTokenExpire ) {
+            $putPolicy = new \Qiniu_RS_PutPolicy( $this->bucket );
+            $this->upToken = $putPolicy->Token(null);
+            $this->upTokenExpire = time() + 3600; // qiniu sdk default uptoken expire time, in rs.php
+        }
 
-      return $this->upToken;
-   }
+        return $this->upToken;
+    }
 
-   /*
-    * upload a text to qiniu
-    *
-    * read: https://github.com/qiniu/php-sdk/tree/develop/docs#11%E4%B8%8A%E4%BC%A0%E6%B5%81%E7%A8%8B
-    */
-   public function put( $key, $content )
-   {
-      $upToken = $this->getUpToken();
+    /*
+     * upload a text to qiniu
+     *
+     * read: https://github.com/qiniu/php-sdk/tree/develop/docs#11%E4%B8%8A%E4%BC%A0%E6%B5%81%E7%A8%8B
+     */
+    public function put( $content )
+    {
+        $key = md5($content);
 
-      list($ret, $err) = Qiniu_Put( $upToken, $key, $content, null );
+        $upToken = $this->getUpToken();
 
-      if( $err !== null ) {
-         throw new QiniuPutException( $err->Err, $err->Code, $key );
-      } else {
-         return $this->getBaseUrl( $ret['key'] );
-      }
-   }
+        list($ret, $err) = Qiniu_Put( $upToken, $key, $content, null );
 
-   /*
-    * upload a file to qiniu
-    *
-    * read: https://github.com/qiniu/php-sdk/tree/develop/docs#11%E4%B8%8A%E4%BC%A0%E6%B5%81%E7%A8%8B
-    */
-   public function putFile( $key, $filePath )
-   {
-      $upToken = $this->getUpToken();
+        if( $err !== null ) {
+            throw new QiniuPutException( $err->Err, $err->Code, $key );
+        } else {
+            return $ret['key'];
+        }
+    }
 
-      $putExtra = new \Qiniu_PutExtra();
-      $putExtra->Crc32 = 1;
+    /*
+     * upload a file to qiniu
+     *
+     * read: https://github.com/qiniu/php-sdk/tree/develop/docs#11%E4%B8%8A%E4%BC%A0%E6%B5%81%E7%A8%8B
+     */
+    public function putFile( $filePath )
+    {
+        $key = md5_file( $filePath );
 
-      list($ret, $err) = Qiniu_PutFile( $upToken, $key, $filePath, $putExtra );
-      if( $err !== null ) {
-         throw new QiniuPutException( $err->Err, $err->Code, $key );
-      } else {
-         return $this->getBaseUrl( $ret['key'] );
-      }
-   }
+        $upToken = $this->getUpToken();
 
-   /*
-    * delete a resource from qiniu
-    */
-   public function delete( $key )
-   {
-       $err = Qiniu_RS_Delete( $this->client, $this->bucket, $key );
+        $putExtra = new \Qiniu_PutExtra();
+        $putExtra->Crc32 = 1;
 
-       if( $err !== null ) {
-           throw new QiniuDeleteException( $err->Err, $err->Code, $key );
-       } else {
-           return true;
-       }
-   }
+        list($ret, $err) = Qiniu_PutFile( $upToken, $key, $filePath, $putExtra );
+        if( $err !== null ) {
+            throw new QiniuPutException( $err->Err, $err->Code, $key );
+        } else {
+            return $ret['key'];
+        }
+    }
 
-   /*
-    * batch delete
-    */
-   public function batchDelete( array $pairs )
-   {
-       return true;
-   }
+    /*
+     * delete a resource from qiniu
+     */
+    public function delete( $key )
+    {
+        $err = Qiniu_RS_Delete( $this->client, $this->bucket, $key );
 
-   /*
-    * rename a resource
-    */
-   public function move( $oldKey, $newKey, $newBucket = null )
-   {
-       if( $newBucket === null ) {
-           $newBucket = $this->bucket;
-       }
+        if( $err !== null ) {
+            throw new QiniuDeleteException( $err->Err, $err->Code, $key );
+        } else {
+            return true;
+        }
+    }
 
-       $err = Qiniu_RS_Move( $this->client, $this->bucket, $oldKey, $newBucket, $newKey );
+    /*
+     * batch delete
+     */
+    public function batchDelete( array $pairs )
+    {
+        return true;
+    }
 
-       if( $err !== null ) {
-           throw new QiniuMoveException( $err->Err, $err->Code, $key );
-       } else {
-           return true;
-       }
-   }
+    /*
+     * rename a resource
+     */
+    public function move( $oldKey, $newKey, $newBucket = null )
+    {
+        if( $newBucket === null ) {
+            $newBucket = $this->bucket;
+        }
 
-   /*
-    * batch rename
-    */
-   public function batchMove( array $pairs )
-   {
-       return true;
-   }
+        $err = Qiniu_RS_Move( $this->client, $this->bucket, $oldKey, $newBucket, $newKey );
 
-   /*
-    * copy a resource
-    */
-   public function copy( $oldKey, $newKey, $newBucket = null )
-   {
-       if( $newBucket === null ) {
-           $newBucket = $this->bucket;
-       }
+        if( $err !== null ) {
+            throw new QiniuMoveException( $err->Err, $err->Code, $key );
+        } else {
+            return true;
+        }
+    }
 
-       $err = Qiniu_RS_Copy( $this->client, $this->bucket, $oldKey, $newBucket, $newKey );
+    /*
+     * batch rename
+     */
+    public function batchMove( array $pairs )
+    {
+        return true;
+    }
 
-       if( $err !== null ) {
-           throw new QiniuCopyException( $err->Err, $err->Code, $key );
-       } else {
-           return true;
-       }
-   }
+    /*
+     * copy a resource
+     */
+    public function copy( $oldKey, $newKey, $newBucket = null )
+    {
+        if( $newBucket === null ) {
+            $newBucket = $this->bucket;
+        }
 
-   /*
-    * batch copy
-    */
-   public function batchCopy( array $pairs )
-   {
-       return true;
-   }
+        $err = Qiniu_RS_Copy( $this->client, $this->bucket, $oldKey, $newBucket, $newKey );
 
-   /*
-    * get a resource attributes
-    */
-   public function stat( $key )
-   {
-       list( $ret, $err ) = Qiniu_RS_Stat( $this->client, $this->bucket, $key );
+        if( $err !== null ) {
+            throw new QiniuCopyException( $err->Err, $err->Code, $key );
+        } else {
+            return true;
+        }
+    }
 
-       if( $err !== null ) {
-           throw new QiniuStatException( $err->Err, $err->Code, $key );
-       } else {
-           return $ret;
-       }
-   }
+    /*
+     * batch copy
+     */
+    public function batchCopy( array $pairs )
+    {
+        return true;
+    }
 
-   /*
-    * batch get resources attributes
-    */
-   public function batchStat()
-   {
-       $keys = func_get_args();
+    /*
+     * get a resource attributes
+     */
+    public function stat( $key )
+    {
+        list( $ret, $err ) = Qiniu_RS_Stat( $this->client, $this->bucket, $key );
 
-       if( func_num_args() <= 0 ) {
-           return array();
-       }
+        if( $err !== null ) {
+            throw new QiniuStatException( $err->Err, $err->Code, $key );
+        } else {
+            return $ret;
+        }
+    }
 
-       foreach( $keys as $i => $key ) {
-           $keys[$i] = new \Qiniu_RS_EntryPath( $this->bucket, $key );
-       }
+    /*
+     * batch get resources attributes
+     */
+    public function batchStat()
+    {
+        $keys = func_get_args();
 
-       list( $ret, $err ) = Qiniu_RS_BatchStat( $this->client, $keys );
+        if( func_num_args() <= 0 ) {
+            return array();
+        }
 
-       if( $err !== null ) {
-           $ret['code'] = $err->Code;
-           return $ret;
-       } else {
-           return $ret;
-       }
-   }
+        foreach( $keys as $i => $key ) {
+            $keys[$i] = new \Qiniu_RS_EntryPath( $this->bucket, $key );
+        }
+
+        list( $ret, $err ) = Qiniu_RS_BatchStat( $this->client, $keys );
+
+        if( $err !== null ) {
+            $ret['code'] = $err->Code;
+            return $ret;
+        } else {
+            return $ret;
+        }
+    }
+
+    /*
+     * get image resource with custom size
+     *
+     * TODO this is a old qiniu api, don't use this
+     *
+     * read more: http://developer.qiniu.com/docs/v6/api/reference/obsolete/imageview.html
+     */
+    public function imageView( $width, $height, $key, $mode = 1 )
+    {
+        return true;
+    }
 }
