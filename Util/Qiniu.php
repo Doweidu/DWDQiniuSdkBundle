@@ -154,7 +154,7 @@ class Qiniu
     public function putFile( $filePath )
     {
         if( !file_exists( $filePath ) ) {
-            throw FileNotFoundException('No such file or directory!');
+            throw new FileNotFoundException($filePath, 404);
         }
 
         $key = md5_file( $filePath );
