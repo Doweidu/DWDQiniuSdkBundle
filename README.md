@@ -57,8 +57,11 @@ $qiniu = $this->container->get('dwd_qiniu_sdk');
 $rs = $qiniu->put('<key-name>', '<Content>'); //上传文本内容，可以直接把内容上传，使用key可以取到一个文本资源
 $rs = $qiniu->putFile('<key-name>', '<file-path>'); //上传本地文件，指定文件路径即可
 $rs = $qiniu->delete('<key-name>'); //从七牛删除一个资源
+$rs = $qiniu->batchDelete('<key1-name>'[, '<key2-name>', ...]); //从七牛删除同一个bucket的多个资源
 $rs = $qiniu->mv('<old-key-name>', 'new-key-name', '<new-bucket-name>'); //移动一个资源，第三个参数可选，默认是同一个bucket内移动
-$rs = $qiniu->copy('<old-key-name>', 'new-key-name', '<new-bucket-name>'); //复制一个资源，第三个参数可选，默认是同一个bucket内复制
+$rs = $qiniu->batchMv(array('old'=>'<old-key1-name>', 'new'=>'new-key1-name')[, array('old'=>'<old-key2-name>', 'new'=>'new-key2-name'), ...]); //移动同一个bucket的多个资源
+$rs = $qiniu->copy('<from-key-name>', 'to-key-name', '<new-bucket-name>'); //复制一个资源，第三个参数可选，默认是同一个bucket内复制
+$rs = $qiniu->batchCopy(array('from'=>'<from-key1-name>', 'to'=>'to-key1-name')[, array('from'=>'<from-key2-name>', 'to'=>'to-key2-name'), ...]); //复制同一个bucket的多个资源
 $rs = $qiniu->stat('<key-name>'); //获取资源信息，包括文件大小(fsize)，哈希值(hash)，类型(mimeType)，上传时间(putTime)
 $rs = $qiniu->batchStat('<key1-name>'[, '<key2-name>', ...]); //批量获取文件信息，返回一个数组，code是指资源状态，正常资源是200，data中是和stat相同字段的列表数组
 ```

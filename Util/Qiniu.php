@@ -14,6 +14,7 @@
 namespace DWD\QiniuSdkBundle\Util;
 
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
 use DWD\QiniuSdkBundle\Exception\QiniuPutException;
 use DWD\QiniuSdkBundle\Exception\QiniuDeleteException;
 use DWD\QiniuSdkBundle\Exception\QiniuMoveException;
@@ -26,8 +27,7 @@ class Qiniu
     private $secretKey;
     private $bucket;
     private $domain;
-    private $upToken = null;
-    private $upTokenExpire = 0;
+    private $putPolicy = null;
     public $client;
 
     /*
@@ -84,16 +84,35 @@ class Qiniu
 
     /*
      * get upload token
+     *
+     * read more: https://github.com/qiniu/php-sdk/tree/develop/docs#12-%E4%B8%8A%E4%BC%A0%E7%AD%96%E7%95%A5
      */
-    public function getUpToken()
+    public function getUpToken( $expire = 1800, $callbackUrl = null, $callbackBody = null )
     {
-        if( $this->upToken === null OR time() > $this->upTokenExpire ) {
-            $putPolicy = new \Qiniu_RS_PutPolicy( $this->bucket );
-            $this->upToken = $putPolicy->Token(null);
-            $this->upTokenExpire = time() + 3600; // qiniu sdk default uptoken expire time, in rs.php
+        if( $this->putPolicy === null ) {
+            $this->putPolicy = new \Qiniu_RS_PutPolicy( $this->bucket );
         }
 
-        return $this->upToken;
+        /*
+         * set expires time
+         * $expire second
+         */
+        if( $expire != $this->putPolicy->Expires ) {
+            $this->putPolicy->Expires = $expire;
+        }
+
+        if( $callbackUrl != $this->putPolicy->CallbackUrl ) {
+            /*
+             * TODO 检查callbackUrl是否为其他站点
+             */
+            $this->putPolicy->CallbackUrl = $callbackUrl;
+        }
+
+        if( $callbackBody != $this->putPolicy->CallbackBody ) {
+            $this->putPolicy->CallbackBody = $callbackBody;
+        }
+
+        return $this->putPolicy->Token(null);
     }
 
     /*
@@ -107,7 +126,18 @@ class Qiniu
 
         $upToken = $this->getUpToken();
 
-        list($ret, $err) = Qiniu_Put( $upToken, $key, $content, null );
+        $i = 0;
+
+        do {
+            list($ret, $err) = Qiniu_Put( $upToken, $key, $content, null );
+            $i++;
+
+            /*
+             * 503 服务端不可用
+             * 504 服务端操作超时
+             * 599 服务端操作失败
+             */
+        } while( $i < 3 AND $err !== null AND in_array( $err->Code, array( 503, 504, 599 ) ) );
 
         if( $err !== null ) {
             throw new QiniuPutException( $err->Err, $err->Code, $key );
@@ -123,6 +153,10 @@ class Qiniu
      */
     public function putFile( $filePath )
     {
+        if( !file_exists( $filePath ) ) {
+            throw FileNotFoundException('No such file or directory!');
+        }
+
         $key = md5_file( $filePath );
 
         $upToken = $this->getUpToken();
@@ -130,7 +164,17 @@ class Qiniu
         $putExtra = new \Qiniu_PutExtra();
         $putExtra->Crc32 = 1;
 
-        list($ret, $err) = Qiniu_PutFile( $upToken, $key, $filePath, $putExtra );
+        do {
+            list($ret, $err) = Qiniu_PutFile( $upToken, $key, $filePath, $putExtra );
+            $i++;
+
+            /*
+             * 503 服务端不可用
+             * 504 服务端操作超时
+             * 599 服务端操作失败
+             */
+        } while( $i < 3 AND $err !== null AND in_array( $err->Code, array( 503, 504, 599 ) ) );
+
         if( $err !== null ) {
             throw new QiniuPutException( $err->Err, $err->Code, $key );
         } else {
@@ -155,9 +199,26 @@ class Qiniu
     /*
      * batch delete
      */
-    public function batchDelete( array $pairs )
+    public function batchDelete()
     {
-        return true;
+        $keys = func_get_args();
+
+        if( func_num_args() <= 0 ) {
+            return array();
+        }
+
+        foreach( $keys as $i => $key ) {
+            $keys[$i] = new \Qiniu_RS_EntryPath( $this->bucket, $key );
+        }
+
+        list( $ret, $err ) = Qiniu_RS_BatchDelete($client, $entries);
+
+        if( $err !== null ) {
+            $ret['code'] = $err->Code;
+            return $ret;
+        } else {
+            return $ret;
+        }
     }
 
     /*
@@ -180,10 +241,43 @@ class Qiniu
 
     /*
      * batch rename
+     *
+     * param $pair array( 'old' => 'old-key', 'new' => 'new-key' )
+     * param $pair2 array( 'old' => 'old-key', 'new' => 'new-key' )
+     * ...
+     *
      */
-    public function batchMove( array $pairs )
+    public function batchMove()
     {
-        return true;
+        $keys = func_get_args();
+
+        if( func_num_args() <= 0 ) {
+            return array();
+        }
+
+        $entries = array();
+
+        foreach( $keys as $i => $key ) {
+            if( isset( $key['old'] ) AND !empty( $key['old'] ) AND isset( $key['new'] ) AND !empty( $key['new'] ) ) {
+                $key['old'] = new \Qiniu_RS_EntryPath( $this->bucket, $key['old'] );
+                $key['new'] = new \Qiniu_RS_EntryPath( $this->bucket, $key['new'] );
+                $entries[$i] = new \Qiniu_RS_EntryPathPair( $key['old'], $key['new'] );
+            } else {
+                $entries[$i] = new \Qiniu_RS_EntryPathPair(
+                    new \Qiniu_RS_EntryPath( $this->bucket, 'empty' ),
+                    new \Qiniu_RS_EntryPath( $this->bucket, 'empty' )
+                );
+            }
+        }
+
+        list( $ret, $err ) = Qiniu_RS_BatchDelete($client, $entries);
+
+        if( $err !== null ) {
+            $ret['code'] = $err->Code;
+            return $ret;
+        } else {
+            return $ret;
+        }
     }
 
     /*
@@ -206,10 +300,41 @@ class Qiniu
 
     /*
      * batch copy
+     * param $pair array( 'from' => 'from-key', 'to' => 'to-key' )
+     * param $pair2 array( 'from' => 'from-key', 'to' => 'to-key' )
+     * ...
      */
     public function batchCopy( array $pairs )
     {
-        return true;
+        $keys = func_get_args();
+
+        if( func_num_args() <= 0 ) {
+            return array();
+        }
+
+        $entries = array();
+
+        foreach( $keys as $i => $key ) {
+            if( isset( $key['from'] ) AND !empty( $key['from'] ) AND isset( $key['to'] ) AND !empty( $key['to'] ) ) {
+                $key['from'] = new \Qiniu_RS_EntryPath( $this->bucket, $key['from'] );
+                $key['to'] = new \Qiniu_RS_EntryPath( $this->bucket, $key['to'] );
+                $entries[$i] = new \Qiniu_RS_EntryPathPair( $key['from'], $key['to'] );
+            } else {
+                $entries[$i] = new \Qiniu_RS_EntryPathPair(
+                    new \Qiniu_RS_EntryPath( $this->bucket, 'empty' ),
+                    new \Qiniu_RS_EntryPath( $this->bucket, 'empty' )
+                );
+            }
+        }
+
+        list( $ret, $err ) = Qiniu_RS_BatchCopy($client, $entries);
+
+        if( $err !== null ) {
+            $ret['code'] = $err->Code;
+            return $ret;
+        } else {
+            return $ret;
+        }
     }
 
     /*
