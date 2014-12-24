@@ -164,6 +164,7 @@ class Qiniu
         $putExtra = new \Qiniu_PutExtra();
         $putExtra->Crc32 = 1;
 
+	$i = 0;
         do {
             list($ret, $err) = Qiniu_PutFile( $upToken, $key, $filePath, $putExtra );
             $i++;
