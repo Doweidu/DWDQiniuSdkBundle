@@ -388,4 +388,15 @@ class Qiniu
     {
         return true;
     }
+
+    public function getKey($url)
+    {
+        return substr_replace($this->domain, '', $url);
+    }
+
+    public function getDomain()
+    {
+        return $this->domain;
+    }
+
 }
