@@ -391,7 +391,9 @@ class Qiniu
 
     public function getKey($url)
     {
-        return substr_replace($this->domain, '', $url);
+		$key = trim(parse_url($url, PHP_URL_PATH), '/');
+
+		return $key;
     }
 
     public function getDomain()
