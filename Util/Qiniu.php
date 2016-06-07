@@ -184,6 +184,44 @@ class Qiniu
     }
 
     /*
+     * upload a file to qiniu
+     * 获取上传文件的原始名字,不进行md5转换 by wpp
+     * read: https://github.com/qiniu/php-sdk/tree/develop/docs#11%E4%B8%8A%E4%BC%A0%E6%B5%81%E7%A8%8B
+     */
+    public function putFileOrigin( $filePath )
+    {
+        if( !file_exists( $filePath ) ) {
+            throw new FileNotFoundException($filePath, 404);
+        }
+
+//        $key = md5_file( $filePath );
+        $key = preg_replace('/(.*)\/{1}([^\/]*)/i', '$2', $filePath);
+
+        $upToken = $this->getUpToken();
+
+        $putExtra = new \Qiniu_PutExtra();
+        $putExtra->Crc32 = 1;
+
+        $i = 0;
+        do {
+            list($ret, $err) = Qiniu_PutFile( $upToken, $key, $filePath, $putExtra );
+            $i++;
+
+            /*
+             * 503 服务端不可用
+             * 504 服务端操作超时
+             * 599 服务端操作失败
+             */
+        } while( $i < 3 AND $err !== null AND in_array( $err->Code, array( 503, 504, 599 ) ) );
+
+        if( $err !== null ) {
+            throw new QiniuPutException( $err->Err, $err->Code, $key );
+        } else {
+            return $ret['key'];
+        }
+    }
+
+    /*
      * delete a resource from qiniu
      */
     public function delete( $key )
